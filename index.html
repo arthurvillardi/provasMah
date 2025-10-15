@@ -33,6 +33,20 @@
             background-color: #991b1b !important; /* red-800 */
             color: #ffffff !important;
         }
+        /* Simple spinner for loading state */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
@@ -45,34 +59,50 @@
 
     <div class="bg-gray-800 shadow-2xl rounded-2xl p-6 sm:p-8">
         
-        <!-- Score and Filters Section -->
+        <!-- Controls Section -->
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <div id="score-container" class="text-lg font-semibold bg-gray-700 px-4 py-2 rounded-lg">
-                Pontuação: 0 / 0
-            </div>
             <div id="category-filters" class="flex flex-wrap justify-center gap-2">
                 <!-- Category buttons will be inserted here -->
             </div>
+             <div class="flex items-center gap-2">
+                <input type="number" id="question-count-input" value="5" min="1" max="10" class="bg-gray-700 text-white w-20 text-center rounded-lg p-2">
+                <button id="generate-pool-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-blue-800 disabled:cursor-wait">Gerar Simulado</button>
+            </div>
         </div>
-
-        <!-- Question Container -->
-        <div class="question-container">
-            <p class="question-statement text-xl font-medium mb-6" id="question-text"></p>
-            <div class="options-list space-y-3" id="options-container">
-                <!-- Options will be dynamically generated here -->
+        
+        <div id="quiz-area" class="hidden">
+            <!-- Navigation and Score -->
+            <div class="flex justify-between items-center mb-4">
+                 <button id="prev-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">&lt; Anterior</button>
+                 <div class="flex flex-col items-center">
+                    <div id="question-counter" class="text-lg font-semibold">Questão 1 / 5</div>
+                    <div id="score-container" class="text-sm text-gray-400">Pontuação: 0 / 0</div>
+                 </div>
+                 <button id="next-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">Próxima &gt;</button>
             </div>
-            
-            <div class="button-group mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button id="check-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">Verificar Resposta</button>
-                <button id="new-question-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105">Gerar Nova Questão</button>
-            </div>
 
-            <div id="feedback" class="feedback-section mt-6 p-5 rounded-lg border-l-4" style="display: none;">
-                <div class="explanation-content">
-                    <p class="explanation-title text-xl font-bold mb-2">Gabarito e Explicação</p>
-                    <p id="correct-answer-text" class="mb-2 font-semibold"></p>
-                    <p id="correct-explanation-text" class="text-gray-300"></p>
-                    <div id="incorrect-explanations" class="mt-4"></div>
+            <!-- Question Container -->
+            <div class="question-container min-h-[200px] border-t border-gray-700 pt-4">
+                <p class="question-statement text-xl font-medium mb-6" id="question-text"></p>
+                <div id="loader-container" class="hidden text-center">
+                     <div class="loader"></div>
+                     <p>Gerando seu simulado com IA... Isso pode levar alguns segundos.</p>
+                </div>
+                <div class="options-list space-y-3" id="options-container">
+                    <!-- Options will be dynamically generated here -->
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button id="check-btn" class="w-full max-w-xs bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">Verificar Resposta</button>
+                </div>
+
+                <div id="feedback" class="feedback-section mt-6 p-5 rounded-lg border-l-4" style="display: none;">
+                    <div class="explanation-content">
+                        <p class="explanation-title text-xl font-bold mb-2">Gabarito e Explicação</p>
+                        <p id="correct-answer-text" class="mb-2 font-semibold"></p>
+                        <p id="correct-explanation-text" class="text-gray-300"></p>
+                        <div id="incorrect-explanations" class="mt-4"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -81,145 +111,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // EXPANDED QUESTION BANK
-    const questionBank = [
-        {
-            category: "Clínica Médica",
-            statement: "Paciente masculino, 68 anos, hipertenso e diabético, chega ao PS com dor torácica súbita, intensa, tipo 'rasgando', irradiando para o dorso. Ao exame, PA de 180/110 mmHg no MSD e 140/90 mmHg no MSE. Ausculta cardíaca com sopro diastólico em foco aórtico. ECG sem alterações isquêmicas. Qual a principal hipótese e conduta inicial?",
-            options: [
-                { id: 'A', text: "IAM com supra de ST. Iniciar trombolítico." },
-                { id: 'B', text: "Dissecção Aguda de Aorta. Controle agressivo da PA e FC com betabloqueador EV e avaliação cirúrgica." },
-                { id: 'C', text: "Embolia Pulmonar Maciça. Administrar heparina e solicitar angiotomografia." },
-                { id: 'D', text: "Pericardite Aguda. Iniciar AINE e solicitar ecocardiograma." }
-            ],
-            correctAnswer: 'B',
-            explanation: {
-                correct: "O quadro clínico de dor torácica 'rasgando', assimetria de pulsos/PA e sopro aórtico é clássico de Dissecção Aguda de Aorta. O manejo inicial visa reduzir o estresse na parede aórtica com controle rigoroso da PA e FC, sendo o betabloqueador a primeira escolha, seguido de avaliação cirúrgica de urgência.",
-                incorrects: [
-                    { id: 'A', reason: "Trombolíticos são contraindicados e fatais na dissecção de aorta." },
-                    { id: 'C', reason: "Os achados de assimetria de PA e sopro aórtico não são típicos de TEP." },
-                    { id: 'D', reason: "A dor da pericardite é tipicamente ventilatório-dependente e de alívio postural." }
-                ]
-            }
-        },
-        {
-            category: "Cirurgia",
-            statement: "Homem de 45 anos, vítima de acidente automobilístico, chega à emergência hipotenso (PA 80/50 mmHg), taquicárdico (FC 130 bpm), com abdômen distendido e doloroso. O FAST revela líquido livre na cavidade peritoneal. Qual a conduta imediata mais apropriada?",
-            options: [
-                { id: 'A', text: "Realizar TC de abdômen com contraste para localizar o sangramento." },
-                { id: 'B', text: "Realizar lavado peritoneal diagnóstico para confirmar hemoperitônio." },
-                { id: 'C', text: "Indicar laparotomia exploradora de emergência." },
-                { id: 'D', text: "Manter em observação com exames abdominais seriados." }
-            ],
-            correctAnswer: 'C',
-            explanation: {
-                correct: "Um paciente de trauma com instabilidade hemodinâmica e evidência de sangramento intra-abdominal (FAST positivo) tem indicação formal e imediata de laparotomia exploradora para controle da hemorragia.",
-                incorrects: [
-                    { id: 'A', reason: "A TC é contraindicada em pacientes instáveis, pois retarda o tratamento definitivo." },
-                    { id: 'B', reason: "O FAST positivo já confirmou o hemoperitônio, tornando o LPD desnecessário." },
-                    { id: 'D', reason: "A observação é reservada para pacientes hemodinamicamente estáveis." }
-                ]
-            }
-        },
-        {
-            category: "Pediatria",
-            statement: "Criança de 4 anos é levada à consulta com febre alta há 3 dias, dor de garganta e recusa alimentar. Ao exame, apresenta exantema difuso, micropapular, que se assemelha a uma 'lixa', mais intenso em dobras (sinal de Pastia). Apresenta palidez perioral (sinal de Filatov) e língua em 'framboesa'. Qual o diagnóstico mais provável?",
-            options: [
-                { id: 'A', text: "Sarampo" },
-                { id: 'B', text: "Doença de Kawasaki" },
-                { id: 'C', text: "Mononucleose Infecciosa" },
-                { id: 'D', text: "Escarlatina" }
-            ],
-            correctAnswer: 'D',
-            explanation: {
-                correct: "A combinação de faringite, febre, exantema em lixa, sinal de Pastia, sinal de Filatov e língua em framboesa é o quadro clássico de Escarlatina, causada por toxinas do Streptococcus pyogenes.",
-                incorrects: [
-                    { id: 'A', reason: "Sarampo cursa com exantema maculopapular, tosse, coriza, conjuntivite e manchas de Koplik." },
-                    { id: 'B', reason: "Kawasaki é um diagnóstico diferencial, mas não apresenta o exantema em lixa e a língua em framboesa de forma tão característica." },
-                    { id: 'C', reason: "Mononucleose pode ter faringite e rash, mas os outros sinais clássicos da escarlatina estão ausentes." }
-                ]
-            }
-        },
-        {
-            category: "Ginecologia e Obstetrícia",
-            statement: "Gestante de 34 semanas, G2P1, com queixa de sangramento vaginal vermelho vivo, indolor, de início súbito. Nega contrações. Ao exame, útero relaxado e indolor, BCF de 140 bpm. Qual a hipótese diagnóstica mais provável?",
-            options: [
-                { id: 'A', text: "Descolamento prematuro de placenta (DPP)" },
-                { id: 'B', text: "Placenta prévia" },
-                { id: 'C', text: "Rotura de vasa prévia" },
-                { id: 'D', text: "Início de trabalho de parto" }
-            ],
-            correctAnswer: 'B',
-            explanation: {
-                correct: "O sangramento indolor, de cor vermelho vivo, com útero relaxado e bem-estar fetal preservado no terceiro trimestre é a apresentação clássica de Placenta Prévia.",
-                incorrects: [
-                    { id: 'A', reason: "DPP classicamente cursa com dor abdominal, hipertonia uterina e sangramento escuro." },
-                    { id: 'C', reason: "A rotura de vasa prévia se manifesta com sangramento fetal e sofrimento agudo no momento da amniorrexe." },
-                    { id: 'D', reason: "O sangramento do trabalho de parto é mucossanguinolento e em pequena quantidade." }
-                ]
-            }
-        },
-        {
-            category: "Medicina Preventiva",
-            statement: "Um estudo foi desenhado para avaliar a associação entre o uso de um novo hipoglicemiante e o risco de infarto. Foram selecionados 5.000 pacientes diabéticos. Destes, 2.500 já usavam o novo medicamento (expostos) e 2.500 usavam um medicamento tradicional (não expostos). Ambos os grupos foram seguidos por 10 anos para observar a incidência de infarto. Que tipo de estudo é este?",
-            options: [
-                { id: 'A', text: "Ensaio clínico randomizado" },
-                { id: 'B', text: "Estudo de caso-controle" },
-                { id: 'C', text: "Estudo transversal" },
-                { id: 'D', text: "Estudo de coorte" }
-            ],
-            correctAnswer: 'D',
-            explanation: {
-                correct: "Este é um estudo de coorte, pois parte da exposição (uso do medicamento) e segue os grupos (coortes) ao longo do tempo para observar o desfecho (infarto).",
-                incorrects: [
-                    { id: 'A', reason: "Em um ensaio clínico, o pesquisador alocaria os pacientes para os grupos de tratamento, o que não ocorreu." },
-                    { id: 'B', reason: "Um estudo caso-controle partiria do desfecho (pacientes com e sem infarto) para investigar a exposição passada." },
-                    { id: 'C', reason: "Um estudo transversal avaliaria exposição e desfecho em um único momento." }
-                ]
-            }
-        },
-        {
-            category: "Cirurgia",
-            statement: "Paciente de 22 anos apresenta dor em fossa ilíaca direita há 24h, com irradiação a partir da região periumbilical. Apresenta náuseas, hiporexia e febre de 38.1°C. Ao exame, dor à descompressão brusca no ponto de McBurney. Hemograma com 14.000 leucócitos e desvio à esquerda. Qual o diagnóstico e conduta mais prováveis?",
-            options: [
-                { id: 'A', text: "Doença inflamatória pélvica. Iniciar antibioticoterapia." },
-                { id: 'B', text: "Gastroenterite aguda. Hidratação e sintomáticos." },
-                { id: 'C', text: "Apendicite aguda. Indicar apendicectomia." },
-                { id: 'D', text: "Litíase ureteral. Solicitar urotomografia." }
-            ],
-            correctAnswer: 'C',
-            explanation: {
-                correct: "O quadro clínico com migração da dor, febre, leucocitose e sinais de irritação peritoneal em fossa ilíaca direita é altamente sugestivo de apendicite aguda. A conduta é cirúrgica.",
-                incorrects: [
-                    { id: 'A', reason: "DIP é um diagnóstico diferencial em mulheres, mas a migração clássica da dor aponta para apendicite." },
-                    { id: 'B', reason: "Gastroenterite geralmente cursa com vômitos e diarreia mais proeminentes e a dor não é tão localizada." },
-                    { id: 'D', reason: "A dor da litíase ureteral é tipicamente em cólica, de forte intensidade e com irradiação para região genital." }
-                ]
-            }
-        },
-        {
-            category: "Pediatria",
-            statement: "Lactente de 6 meses é levado ao pronto-socorro com história de 3 dias de coriza e tosse, evoluindo nas últimas 12 horas com taquipneia, gemência e tiragem subcostal. Saturação de O2 em ar ambiente de 89%. Ausculta pulmonar com sibilos difusos. Qual o principal agente etiológico e tratamento de suporte?",
-            options: [
-                { id: 'A', text: "Streptococcus pneumoniae. Antibioticoterapia com Amoxicilina." },
-                { id: 'B', text: "Vírus Sincicial Respiratório (VSR). Oxigenoterapia e hidratação." },
-                { id: 'C', text: "Mycoplasma pneumoniae. Macrolídeo." },
-                { id: 'D', text: "Influenza. Oseltamivir." }
-            ],
-            correctAnswer: 'B',
-            explanation: {
-                correct: "O quadro de bronquiolite viral aguda em lactente é majoritariamente causado pelo VSR. O tratamento é de suporte, com oxigenoterapia para manter saturação >90%, hidratação e, se necessário, suporte ventilatório.",
-                incorrects: [
-                    { id: 'A', reason: "A pneumonia bacteriana pode ocorrer, mas o quadro clínico de sibilância difusa em lactente aponta para BVA." },
-                    { id: 'C', reason: "Mycoplasma causa pneumonia atípica, mais comum em escolares e adolescentes." },
-                    { id: 'D', reason: "Influenza pode causar quadros graves, mas o VSR é o principal agente de BVA nesta faixa etária." }
-                ]
-            }
-        }
-    ];
-
-    let currentQuestion = null;
-    let answeredQuestions = [];
+    let questionPool = [];
+    let userAnswers = []; // Array to store answers for the pool
+    let currentIndex = 0;
     let score = { correct: 0, total: 0 };
     let currentFilter = 'Todas';
 
@@ -227,20 +121,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsContainerEl = document.getElementById('options-container');
     const feedbackEl = document.getElementById('feedback');
     const checkBtn = document.getElementById('check-btn');
-    const newQuestionBtn = document.getElementById('new-question-btn');
+    const generatePoolBtn = document.getElementById('generate-pool-btn');
     const scoreContainer = document.getElementById('score-container');
     const categoryFiltersContainer = document.getElementById('category-filters');
+    const loaderContainer = document.getElementById('loader-container');
+    const quizArea = document.getElementById('quiz-area');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const questionCounter = document.getElementById('question-counter');
+    const questionCountInput = document.getElementById('question-count-input');
     
-    // Fisher-Yates Shuffle algorithm
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
-
     function setupCategories() {
-        const categories = ['Todas', ...new Set(questionBank.map(q => q.category))];
+        const categories = ['Todas', "Clínica Médica", "Cirurgia", "Pediatria", "Ginecologia e Obstetrícia", "Medicina Preventiva"];
         categoryFiltersContainer.innerHTML = '';
         categories.forEach(category => {
             const button = document.createElement('button');
@@ -251,41 +143,91 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('#category-filters button').forEach(btn => {
                     btn.className = `px-3 py-1 rounded-md text-sm font-medium transition ${btn.textContent === currentFilter ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`;
                 });
-                resetQuiz();
-                generateQuestion();
             };
             categoryFiltersContainer.appendChild(button);
         });
     }
 
-    function generateQuestion() {
-        let availableQuestions = questionBank;
-        if (currentFilter !== 'Todas') {
-            availableQuestions = questionBank.filter(q => q.category === currentFilter);
+    function showLoading(isLoading) {
+        if (isLoading) {
+            quizArea.classList.add('hidden');
+            loaderContainer.classList.remove('hidden');
+            generatePoolBtn.disabled = true;
+            generatePoolBtn.textContent = 'Gerando...';
+        } else {
+            loaderContainer.classList.add('hidden');
+            quizArea.classList.remove('hidden');
+            generatePoolBtn.disabled = false;
+            generatePoolBtn.textContent = 'Gerar Simulado';
         }
+    }
+    
+    async function fetchQuestionPoolFromAI(category, count) {
+        showLoading(true);
+        const categoryPrompt = category === 'Todas' ? 'uma das grandes áreas da medicina (Clínica Médica, Cirurgia, Pediatria, G.O. ou Preventiva)' : category;
+        const systemPrompt = `Você é um especialista em educação médica, criando questões para o Exame Nacional de Residência Médica (ENARE) no Brasil. Sua tarefa é gerar um bloco de questões complexas e de alta qualidade.`;
+        const userQuery = `Crie um bloco de ${count} questões de múltipla escolha (A, B, C, D) sobre ${categoryPrompt}. Para cada questão, inclua:
+1.  Um caso clínico detalhado e realista.
+2.  Quatro opções de resposta (A, B, C, D), todas plausíveis.
+3.  Indicação da alternativa correta.
+4.  Uma explicação detalhada para a alternativa correta.
+5.  Explicações concisas para CADA uma das três alternativas incorretas.
+A resposta DEVE ser um array de objetos JSON, sem nenhum texto ou formatação adicional.`;
 
-        let remainingQuestions = availableQuestions.filter(q => !answeredQuestions.includes(q.statement));
+        const apiKey = ""; // API key is handled by the environment
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         
-        if (remainingQuestions.length === 0) {
-            questionTextEl.textContent = "Você respondeu todas as questões desta categoria!";
-            optionsContainerEl.innerHTML = '';
-            checkBtn.disabled = true;
-            return;
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: { "category": { "type": "STRING" }, "statement": { "type": "STRING" },
+                            "options": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "id": { "type": "STRING" }, "text": { "type": "STRING" } }, "required": ["id", "text"]}},
+                            "correctAnswer": { "type": "STRING" },
+                            "explanation": { "type": "OBJECT", "properties": { "correct": { "type": "STRING" }, "incorrects": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "id": { "type": "STRING" }, "reason": { "type": "STRING" }},"required": ["id", "reason"]}}},"required": ["correct", "incorrects"]}},
+                        "required": ["category", "statement", "options", "correctAnswer", "explanation"]
+                    }
+                }
+            }
+        };
+
+        try {
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+            const result = await response.json();
+            const jsonText = result.candidates[0].content.parts[0].text;
+            questionPool = JSON.parse(jsonText);
+            startQuiz();
+        } catch (error) {
+            console.error("Error fetching AI question pool:", error);
+            alert("Ocorreu um erro ao gerar o simulado. Por favor, tente novamente.");
+        } finally {
+            showLoading(false);
         }
-
-        const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
-        currentQuestion = remainingQuestions[randomIndex];
-        answeredQuestions.push(currentQuestion.statement);
-
-        questionTextEl.textContent = currentQuestion.statement;
-
+    }
+    
+    function startQuiz() {
+        currentIndex = 0;
+        userAnswers = new Array(questionPool.length).fill(null);
+        score = { correct: 0, total: 0 };
+        displayCurrentQuestion();
+        updateScore();
+    }
+    
+    function displayCurrentQuestion() {
+        if (questionPool.length === 0) return;
+        const question = questionPool[currentIndex];
+        
+        questionTextEl.textContent = question.statement;
         optionsContainerEl.innerHTML = '';
         feedbackEl.style.display = 'none';
-        
-        const shuffledOptions = [...currentQuestion.options];
-        shuffleArray(shuffledOptions);
 
-        shuffledOptions.forEach(option => {
+        question.options.forEach(option => {
             const div = document.createElement('div');
             div.className = 'option-item';
             div.innerHTML = `
@@ -295,38 +237,30 @@ document.addEventListener('DOMContentLoaded', () => {
             optionsContainerEl.appendChild(div);
         });
         
-        checkBtn.disabled = false;
+        updateNavigation();
+        restoreAnswerState();
     }
-
-    function checkAnswer() {
-        const selectedOption = document.querySelector('input[name="question"]:checked');
-
-        if (!selectedOption) {
-            // A simple non-blocking notification
-            const tempAlert = document.createElement('div');
-            tempAlert.textContent = 'Por favor, selecione uma alternativa.';
-            tempAlert.className = 'fixed top-5 right-5 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse';
-            document.body.appendChild(tempAlert);
-            setTimeout(() => tempAlert.remove(), 2000);
-            return;
-        }
-
-        const userAnswer = selectedOption.value;
-        const isCorrect = userAnswer === currentQuestion.correctAnswer;
-        
-        score.total++;
-        if (isCorrect) {
-            score.correct++;
-            feedbackEl.className = 'feedback-section mt-6 p-5 rounded-lg border-l-4 border-green-500 bg-green-900/50';
+    
+    function restoreAnswerState() {
+        const savedAnswer = userAnswers[currentIndex];
+        if (savedAnswer) {
+            document.querySelector(`input[name="question"][value="${savedAnswer.selected}"]`).checked = true;
+            showFeedback(savedAnswer.isCorrect);
+            checkBtn.disabled = true;
         } else {
-            feedbackEl.className = 'feedback-section mt-6 p-5 rounded-lg border-l-4 border-red-500 bg-red-900/50';
+            checkBtn.disabled = false;
         }
-        updateScore();
-        feedbackEl.style.display = 'block';
+    }
+    
+    function showFeedback(isCorrect) {
+        const question = questionPool[currentIndex];
         
+        feedbackEl.style.display = 'block';
+        feedbackEl.className = `feedback-section mt-6 p-5 rounded-lg border-l-4 ${isCorrect ? 'border-green-500 bg-green-900/50' : 'border-red-500 bg-red-900/50'}`;
+
         document.querySelectorAll('input[name="question"]').forEach(input => {
             const label = input.nextElementSibling;
-            if (input.value === currentQuestion.correctAnswer) {
+            if (input.value === question.correctAnswer) {
                 label.classList.add('correct-answer-highlight');
             } else if (input.checked) {
                 label.classList.add('incorrect-answer-highlight');
@@ -337,40 +271,84 @@ document.addEventListener('DOMContentLoaded', () => {
         const correctExplanationText = document.getElementById('correct-explanation-text');
         const incorrectExplanationsContainer = document.getElementById('incorrect-explanations');
 
-        correctAnswerText.innerHTML = `<span class="text-green-400">Alternativa Correta: ${currentQuestion.correctAnswer}</span>`;
-        correctExplanationText.textContent = currentQuestion.explanation.correct;
-
+        correctAnswerText.innerHTML = `<span class="text-green-400">Alternativa Correta: ${question.correctAnswer}</span>`;
+        correctExplanationText.textContent = question.explanation.correct;
+        
         if (!isCorrect) {
             let incorrectHtml = `<p class="explanation-title text-lg font-bold mt-4 mb-2 text-red-400">Análise das Alternativas Incorretas:</p>`;
-            currentQuestion.explanation.incorrects.forEach(inc => {
+            question.explanation.incorrects.forEach(inc => {
                 incorrectHtml += `<p class="mb-2"><b class="text-gray-200">${inc.id})</b> <span class="text-gray-400">${inc.reason}</span></p>`;
             });
             incorrectExplanationsContainer.innerHTML = incorrectHtml;
         } else {
             incorrectExplanationsContainer.innerHTML = '';
         }
+    }
+
+    function checkAnswer() {
+        const selectedOption = document.querySelector('input[name="question"]:checked');
+        if (!selectedOption) {
+            alert('Por favor, selecione uma alternativa.');
+            return;
+        }
+
+        const userAnswer = selectedOption.value;
+        const question = questionPool[currentIndex];
+        const isCorrect = userAnswer === question.correctAnswer;
         
+        if (userAnswers[currentIndex] === null) {
+            score.total++;
+            if (isCorrect) score.correct++;
+        }
+        
+        userAnswers[currentIndex] = { selected: userAnswer, isCorrect: isCorrect };
+        
+        updateScore();
+        showFeedback(isCorrect);
         checkBtn.disabled = true;
     }
 
+    function updateNavigation() {
+        questionCounter.textContent = `Questão ${currentIndex + 1} / ${questionPool.length}`;
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === questionPool.length - 1;
+    }
+    
     function updateScore() {
         scoreContainer.textContent = `Pontuação: ${score.correct} / ${score.total}`;
     }
     
-    function resetQuiz() {
-        score = { correct: 0, total: 0 };
-        answeredQuestions = [];
-        updateScore();
-    }
-
-    checkBtn.addEventListener('click', checkAnswer);
-    newQuestionBtn.addEventListener('click', generateQuestion);
+    // EVENT LISTENERS
+    generatePoolBtn.addEventListener('click', () => {
+        const count = parseInt(questionCountInput.value, 10);
+        if (count > 0 && count <= 10) {
+            fetchQuestionPoolFromAI(currentFilter, count);
+        } else {
+            alert("Por favor, insira um número de questões entre 1 e 10.");
+        }
+    });
     
-    // Initial setup
+    checkBtn.addEventListener('click', checkAnswer);
+    
+    prevBtn.addEventListener('click', () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            displayCurrentQuestion();
+        }
+    });
+
+    nextBtn.addEventListener('click', () => {
+        if (currentIndex < questionPool.length - 1) {
+            currentIndex++;
+            displayCurrentQuestion();
+        }
+    });
+    
+    // INITIAL SETUP
     setupCategories();
-    generateQuestion();
 });
 </script>
 
 </body>
 </html>
+
