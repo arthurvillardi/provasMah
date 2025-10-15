@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Questões Aprimorado - Padrão ENARE</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a clean look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        /* Custom styles for checked radio button labels */
+        .option-item input[type="radio"]:checked + label {
+            border-color: #3b82f6; /* blue-500 */
+            background-color: #1e3a8a; /* blue-900 */
+            color: #ffffff;
+            font-weight: 600;
+        }
+        /* Style for correct answer highlight */
+        .correct-answer-highlight {
+            border-color: #22c55e !important; /* green-500 */
+            background-color: #166534 !important; /* green-800 */
+            color: #ffffff !important;
+        }
+        /* Style for incorrect answer highlight */
+        .incorrect-answer-highlight {
+            border-color: #ef4444 !important; /* red-500 */
+            background-color: #991b1b !important; /* red-800 */
+            color: #ffffff !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+
+<div class="container max-w-4xl w-full mx-auto">
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-blue-400">Gerador de Questões</h1>
+        <p class="text-lg text-gray-400">Pratique com questões no padrão ENARE</p>
+    </header>
+
+    <div class="bg-gray-800 shadow-2xl rounded-2xl p-6 sm:p-8">
+        
+        <!-- Score and Filters Section -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div id="score-container" class="text-lg font-semibold bg-gray-700 px-4 py-2 rounded-lg">
+                Pontuação: 0 / 0
+            </div>
+            <div id="category-filters" class="flex flex-wrap justify-center gap-2">
+                <!-- Category buttons will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Question Container -->
+        <div class="question-container">
+            <p class="question-statement text-xl font-medium mb-6" id="question-text"></p>
+            <div class="options-list space-y-3" id="options-container">
+                <!-- Options will be dynamically generated here -->
+            </div>
+            
+            <div class="button-group mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="check-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">Verificar Resposta</button>
+                <button id="new-question-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105">Gerar Nova Questão</button>
+            </div>
+
+            <div id="feedback" class="feedback-section mt-6 p-5 rounded-lg border-l-4" style="display: none;">
+                <div class="explanation-content">
+                    <p class="explanation-title text-xl font-bold mb-2">Gabarito e Explicação</p>
+                    <p id="correct-answer-text" class="mb-2 font-semibold"></p>
+                    <p id="correct-explanation-text" class="text-gray-300"></p>
+                    <div id="incorrect-explanations" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // EXPANDED QUESTION BANK
+    const questionBank = [
+        {
+            category: "Clínica Médica",
+            statement: "Paciente masculino, 68 anos, hipertenso e diabético, chega ao PS com dor torácica súbita, intensa, tipo 'rasgando', irradiando para o dorso. Ao exame, PA de 180/110 mmHg no MSD e 140/90 mmHg no MSE. Ausculta cardíaca com sopro diastólico em foco aórtico. ECG sem alterações isquêmicas. Qual a principal hipótese e conduta inicial?",
+            options: [
+                { id: 'A', text: "IAM com supra de ST. Iniciar trombolítico." },
+                { id: 'B', text: "Dissecção Aguda de Aorta. Controle agressivo da PA e FC com betabloqueador EV e avaliação cirúrgica." },
+                { id: 'C', text: "Embolia Pulmonar Maciça. Administrar heparina e solicitar angiotomografia." },
+                { id: 'D', text: "Pericardite Aguda. Iniciar AINE e solicitar ecocardiograma." }
+            ],
+            correctAnswer: 'B',
+            explanation: {
+                correct: "O quadro clínico de dor torácica 'rasgando', assimetria de pulsos/PA e sopro aórtico é clássico de Dissecção Aguda de Aorta. O manejo inicial visa reduzir o estresse na parede aórtica com controle rigoroso da PA e FC, sendo o betabloqueador a primeira escolha, seguido de avaliação cirúrgica de urgência.",
+                incorrects: [
+                    { id: 'A', reason: "Trombolíticos são contraindicados e fatais na dissecção de aorta." },
+                    { id: 'C', reason: "Os achados de assimetria de PA e sopro aórtico não são típicos de TEP." },
+                    { id: 'D', reason: "A dor da pericardite é tipicamente ventilatório-dependente e de alívio postural." }
+                ]
+            }
+        },
+        {
+            category: "Cirurgia",
+            statement: "Homem de 45 anos, vítima de acidente automobilístico, chega à emergência hipotenso (PA 80/50 mmHg), taquicárdico (FC 130 bpm), com abdômen distendido e doloroso. O FAST revela líquido livre na cavidade peritoneal. Qual a conduta imediata mais apropriada?",
+            options: [
+                { id: 'A', text: "Realizar TC de abdômen com contraste para localizar o sangramento." },
+                { id: 'B', text: "Realizar lavado peritoneal diagnóstico para confirmar hemoperitônio." },
+                { id: 'C', text: "Indicar laparotomia exploradora de emergência." },
+                { id: 'D', text: "Manter em observação com exames abdominais seriados." }
+            ],
+            correctAnswer: 'C',
+            explanation: {
+                correct: "Um paciente de trauma com instabilidade hemodinâmica e evidência de sangramento intra-abdominal (FAST positivo) tem indicação formal e imediata de laparotomia exploradora para controle da hemorragia.",
+                incorrects: [
+                    { id: 'A', reason: "A TC é contraindicada em pacientes instáveis, pois retarda o tratamento definitivo." },
+                    { id: 'B', reason: "O FAST positivo já confirmou o hemoperitônio, tornando o LPD desnecessário." },
+                    { id: 'D', reason: "A observação é reservada para pacientes hemodinamicamente estáveis." }
+                ]
+            }
+        },
+        {
+            category: "Pediatria",
+            statement: "Criança de 4 anos é levada à consulta com febre alta há 3 dias, dor de garganta e recusa alimentar. Ao exame, apresenta exantema difuso, micropapular, que se assemelha a uma 'lixa', mais intenso em dobras (sinal de Pastia). Apresenta palidez perioral (sinal de Filatov) e língua em 'framboesa'. Qual o diagnóstico mais provável?",
+            options: [
+                { id: 'A', text: "Sarampo" },
+                { id: 'B', text: "Doença de Kawasaki" },
+                { id: 'C', text: "Mononucleose Infecciosa" },
+                { id: 'D', text: "Escarlatina" }
+            ],
+            correctAnswer: 'D',
+            explanation: {
+                correct: "A combinação de faringite, febre, exantema em lixa, sinal de Pastia, sinal de Filatov e língua em framboesa é o quadro clássico de Escarlatina, causada por toxinas do Streptococcus pyogenes.",
+                incorrects: [
+                    { id: 'A', reason: "Sarampo cursa com exantema maculopapular, tosse, coriza, conjuntivite e manchas de Koplik." },
+                    { id: 'B', reason: "Kawasaki é um diagnóstico diferencial, mas não apresenta o exantema em lixa e a língua em framboesa de forma tão característica." },
+                    { id: 'C', reason: "Mononucleose pode ter faringite e rash, mas os outros sinais clássicos da escarlatina estão ausentes." }
+                ]
+            }
+        },
+        {
+            category: "Ginecologia e Obstetrícia",
+            statement: "Gestante de 34 semanas, G2P1, com queixa de sangramento vaginal vermelho vivo, indolor, de início súbito. Nega contrações. Ao exame, útero relaxado e indolor, BCF de 140 bpm. Qual a hipótese diagnóstica mais provável?",
+            options: [
+                { id: 'A', text: "Descolamento prematuro de placenta (DPP)" },
+                { id: 'B', text: "Placenta prévia" },
+                { id: 'C', text: "Rotura de vasa prévia" },
+                { id: 'D', text: "Início de trabalho de parto" }
+            ],
+            correctAnswer: 'B',
+            explanation: {
+                correct: "O sangramento indolor, de cor vermelho vivo, com útero relaxado e bem-estar fetal preservado no terceiro trimestre é a apresentação clássica de Placenta Prévia.",
+                incorrects: [
+                    { id: 'A', reason: "DPP classicamente cursa com dor abdominal, hipertonia uterina e sangramento escuro." },
+                    { id: 'C', reason: "A rotura de vasa prévia se manifesta com sangramento fetal e sofrimento agudo no momento da amniorrexe." },
+                    { id: 'D', reason: "O sangramento do trabalho de parto é mucossanguinolento e em pequena quantidade." }
+                ]
+            }
+        },
+        {
+            category: "Medicina Preventiva",
+            statement: "Um estudo foi desenhado para avaliar a associação entre o uso de um novo hipoglicemiante e o risco de infarto. Foram selecionados 5.000 pacientes diabéticos. Destes, 2.500 já usavam o novo medicamento (expostos) e 2.500 usavam um medicamento tradicional (não expostos). Ambos os grupos foram seguidos por 10 anos para observar a incidência de infarto. Que tipo de estudo é este?",
+            options: [
+                { id: 'A', text: "Ensaio clínico randomizado" },
+                { id: 'B', text: "Estudo de caso-controle" },
+                { id: 'C', text: "Estudo transversal" },
+                { id: 'D', text: "Estudo de coorte" }
+            ],
+            correctAnswer: 'D',
+            explanation: {
+                correct: "Este é um estudo de coorte, pois parte da exposição (uso do medicamento) e segue os grupos (coortes) ao longo do tempo para observar o desfecho (infarto).",
+                incorrects: [
+                    { id: 'A', reason: "Em um ensaio clínico, o pesquisador alocaria os pacientes para os grupos de tratamento, o que não ocorreu." },
+                    { id: 'B', reason: "Um estudo caso-controle partiria do desfecho (pacientes com e sem infarto) para investigar a exposição passada." },
+                    { id: 'C', reason: "Um estudo transversal avaliaria exposição e desfecho em um único momento." }
+                ]
+            }
+        },
+        {
+            category: "Cirurgia",
+            statement: "Paciente de 22 anos apresenta dor em fossa ilíaca direita há 24h, com irradiação a partir da região periumbilical. Apresenta náuseas, hiporexia e febre de 38.1°C. Ao exame, dor à descompressão brusca no ponto de McBurney. Hemograma com 14.000 leucócitos e desvio à esquerda. Qual o diagnóstico e conduta mais prováveis?",
+            options: [
+                { id: 'A', text: "Doença inflamatória pélvica. Iniciar antibioticoterapia." },
+                { id: 'B', text: "Gastroenterite aguda. Hidratação e sintomáticos." },
+                { id: 'C', text: "Apendicite aguda. Indicar apendicectomia." },
+                { id: 'D', text: "Litíase ureteral. Solicitar urotomografia." }
+            ],
+            correctAnswer: 'C',
+            explanation: {
+                correct: "O quadro clínico com migração da dor, febre, leucocitose e sinais de irritação peritoneal em fossa ilíaca direita é altamente sugestivo de apendicite aguda. A conduta é cirúrgica.",
+                incorrects: [
+                    { id: 'A', reason: "DIP é um diagnóstico diferencial em mulheres, mas a migração clássica da dor aponta para apendicite." },
+                    { id: 'B', reason: "Gastroenterite geralmente cursa com vômitos e diarreia mais proeminentes e a dor não é tão localizada." },
+                    { id: 'D', reason: "A dor da litíase ureteral é tipicamente em cólica, de forte intensidade e com irradiação para região genital." }
+                ]
+            }
+        },
+        {
+            category: "Pediatria",
+            statement: "Lactente de 6 meses é levado ao pronto-socorro com história de 3 dias de coriza e tosse, evoluindo nas últimas 12 horas com taquipneia, gemência e tiragem subcostal. Saturação de O2 em ar ambiente de 89%. Ausculta pulmonar com sibilos difusos. Qual o principal agente etiológico e tratamento de suporte?",
+            options: [
+                { id: 'A', text: "Streptococcus pneumoniae. Antibioticoterapia com Amoxicilina." },
+                { id: 'B', text: "Vírus Sincicial Respiratório (VSR). Oxigenoterapia e hidratação." },
+                { id: 'C', text: "Mycoplasma pneumoniae. Macrolídeo." },
+                { id: 'D', text: "Influenza. Oseltamivir." }
+            ],
+            correctAnswer: 'B',
+            explanation: {
+                correct: "O quadro de bronquiolite viral aguda em lactente é majoritariamente causado pelo VSR. O tratamento é de suporte, com oxigenoterapia para manter saturação >90%, hidratação e, se necessário, suporte ventilatório.",
+                incorrects: [
+                    { id: 'A', reason: "A pneumonia bacteriana pode ocorrer, mas o quadro clínico de sibilância difusa em lactente aponta para BVA." },
+                    { id: 'C', reason: "Mycoplasma causa pneumonia atípica, mais comum em escolares e adolescentes." },
+                    { id: 'D', reason: "Influenza pode causar quadros graves, mas o VSR é o principal agente de BVA nesta faixa etária." }
+                ]
+            }
+        }
+    ];
+
+    let currentQuestion = null;
+    let answeredQuestions = [];
+    let score = { correct: 0, total: 0 };
+    let currentFilter = 'Todas';
+
+    const questionTextEl = document.getElementById('question-text');
+    const optionsContainerEl = document.getElementById('options-container');
+    const feedbackEl = document.getElementById('feedback');
+    const checkBtn = document.getElementById('check-btn');
+    const newQuestionBtn = document.getElementById('new-question-btn');
+    const scoreContainer = document.getElementById('score-container');
+    const categoryFiltersContainer = document.getElementById('category-filters');
+    
+    // Fisher-Yates Shuffle algorithm
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    function setupCategories() {
+        const categories = ['Todas', ...new Set(questionBank.map(q => q.category))];
+        categoryFiltersContainer.innerHTML = '';
+        categories.forEach(category => {
+            const button = document.createElement('button');
+            button.textContent = category;
+            button.className = `px-3 py-1 rounded-md text-sm font-medium transition ${category === currentFilter ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`;
+            button.onclick = () => {
+                currentFilter = category;
+                document.querySelectorAll('#category-filters button').forEach(btn => {
+                    btn.className = `px-3 py-1 rounded-md text-sm font-medium transition ${btn.textContent === currentFilter ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`;
+                });
+                resetQuiz();
+                generateQuestion();
+            };
+            categoryFiltersContainer.appendChild(button);
+        });
+    }
+
+    function generateQuestion() {
+        let availableQuestions = questionBank;
+        if (currentFilter !== 'Todas') {
+            availableQuestions = questionBank.filter(q => q.category === currentFilter);
+        }
+
+        let remainingQuestions = availableQuestions.filter(q => !answeredQuestions.includes(q.statement));
+        
+        if (remainingQuestions.length === 0) {
+            questionTextEl.textContent = "Você respondeu todas as questões desta categoria!";
+            optionsContainerEl.innerHTML = '';
+            checkBtn.disabled = true;
+            return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * remainingQuestions.length);
+        currentQuestion = remainingQuestions[randomIndex];
+        answeredQuestions.push(currentQuestion.statement);
+
+        questionTextEl.textContent = currentQuestion.statement;
+
+        optionsContainerEl.innerHTML = '';
+        feedbackEl.style.display = 'none';
+        
+        const shuffledOptions = [...currentQuestion.options];
+        shuffleArray(shuffledOptions);
+
+        shuffledOptions.forEach(option => {
+            const div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = `
+                <input type="radio" id="option${option.id}" name="question" value="${option.id}" class="hidden">
+                <label for="option${option.id}" class="block p-4 border-2 border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition">${option.id}) ${option.text}</label>
+            `;
+            optionsContainerEl.appendChild(div);
+        });
+        
+        checkBtn.disabled = false;
+    }
+
+    function checkAnswer() {
+        const selectedOption = document.querySelector('input[name="question"]:checked');
+
+        if (!selectedOption) {
+            // A simple non-blocking notification
+            const tempAlert = document.createElement('div');
+            tempAlert.textContent = 'Por favor, selecione uma alternativa.';
+            tempAlert.className = 'fixed top-5 right-5 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse';
+            document.body.appendChild(tempAlert);
+            setTimeout(() => tempAlert.remove(), 2000);
+            return;
+        }
+
+        const userAnswer = selectedOption.value;
+        const isCorrect = userAnswer === currentQuestion.correctAnswer;
+        
+        score.total++;
+        if (isCorrect) {
+            score.correct++;
+            feedbackEl.className = 'feedback-section mt-6 p-5 rounded-lg border-l-4 border-green-500 bg-green-900/50';
+        } else {
+            feedbackEl.className = 'feedback-section mt-6 p-5 rounded-lg border-l-4 border-red-500 bg-red-900/50';
+        }
+        updateScore();
+        feedbackEl.style.display = 'block';
+        
+        document.querySelectorAll('input[name="question"]').forEach(input => {
+            const label = input.nextElementSibling;
+            if (input.value === currentQuestion.correctAnswer) {
+                label.classList.add('correct-answer-highlight');
+            } else if (input.checked) {
+                label.classList.add('incorrect-answer-highlight');
+            }
+        });
+        
+        const correctAnswerText = document.getElementById('correct-answer-text');
+        const correctExplanationText = document.getElementById('correct-explanation-text');
+        const incorrectExplanationsContainer = document.getElementById('incorrect-explanations');
+
+        correctAnswerText.innerHTML = `<span class="text-green-400">Alternativa Correta: ${currentQuestion.correctAnswer}</span>`;
+        correctExplanationText.textContent = currentQuestion.explanation.correct;
+
+        if (!isCorrect) {
+            let incorrectHtml = `<p class="explanation-title text-lg font-bold mt-4 mb-2 text-red-400">Análise das Alternativas Incorretas:</p>`;
+            currentQuestion.explanation.incorrects.forEach(inc => {
+                incorrectHtml += `<p class="mb-2"><b class="text-gray-200">${inc.id})</b> <span class="text-gray-400">${inc.reason}</span></p>`;
+            });
+            incorrectExplanationsContainer.innerHTML = incorrectHtml;
+        } else {
+            incorrectExplanationsContainer.innerHTML = '';
+        }
+        
+        checkBtn.disabled = true;
+    }
+
+    function updateScore() {
+        scoreContainer.textContent = `Pontuação: ${score.correct} / ${score.total}`;
+    }
+    
+    function resetQuiz() {
+        score = { correct: 0, total: 0 };
+        answeredQuestions = [];
+        updateScore();
+    }
+
+    checkBtn.addEventListener('click', checkAnswer);
+    newQuestionBtn.addEventListener('click', generateQuestion);
+    
+    // Initial setup
+    setupCategories();
+    generateQuestion();
+});
+</script>
+
+</body>
+</html>
